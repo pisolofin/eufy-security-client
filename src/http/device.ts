@@ -175,7 +175,7 @@ export class Device extends TypedEmitter<DeviceEvents> {
     protected convertRawPropertyValue(property: PropertyMetadataAny, value: string): PropertyValue {
         try {
             if (property.key === ParamType.PRIVATE_MODE || property.key === ParamType.OPEN_DEVICE || property.key === CommandType.CMD_DEVS_SWITCH) {
-                if ((this.isIndoorCamera() && !this.isIndoorPanAndTiltCameraS350()) || (this.isWiredDoorbell() && !this.isWiredDoorbellT8200X()) || this.getDeviceType() === DeviceType.FLOODLIGHT_CAMERA_8422 || this.getDeviceType() === DeviceType.FLOODLIGHT_CAMERA_8424) {
+                if ((this.isIndoorCamera() && !this.isIndoorPanAndTiltCameraPrivacy()) || (this.isWiredDoorbell() && !this.isWiredDoorbellT8200X()) || this.getDeviceType() === DeviceType.FLOODLIGHT_CAMERA_8422 || this.getDeviceType() === DeviceType.FLOODLIGHT_CAMERA_8424) {
                     return value !== undefined ? (value === "true" ? true : false) : false;
                 }
                 return value !== undefined ? (value === "0" ? true : false) : false;
@@ -613,7 +613,7 @@ export class Device extends TypedEmitter<DeviceEvents> {
                 property.name === PropertyName.DeviceMotionDetectionTypeHuman ||
                 property.name === PropertyName.DeviceMotionDetectionTypePet ||
                 property.name === PropertyName.DeviceMotionDetectionTypeAllOtherMotions
-            ) && this.isIndoorPanAndTiltCameraS350()) {
+            ) && (this.isIndoorPanAndTiltCameraPrivacy())) {
                 const booleanProperty = property as PropertyMetadataBoolean;
                 try {
                     return isIndoorS350DetectionModeEnabled(Number.parseInt(value), property.name === PropertyName.DeviceMotionDetectionTypeHuman ? IndoorS350DetectionTypes.HUMAN_DETECTION : property.name === PropertyName.DeviceMotionDetectionTypePet ? IndoorS350DetectionTypes.PET_DETECTION : IndoorS350DetectionTypes.ALL_OTHER_MOTION);
@@ -640,7 +640,7 @@ export class Device extends TypedEmitter<DeviceEvents> {
                 property.name === PropertyName.DeviceNotificationPet ||
                 property.name === PropertyName.DeviceNotificationCrying ||
                 property.name === PropertyName.DeviceNotificationAllSound
-            ) && this.isIndoorPanAndTiltCameraS350()) {
+            ) && (this.isIndoorPanAndTiltCameraPrivacy())) {
                 const booleanProperty = property as PropertyMetadataBoolean;
                 try {
                     return isIndoorNotitficationEnabled(Number.parseInt(value), property.name === PropertyName.DeviceNotificationAllOtherMotion ? IndoorS350NotificationTypes.ALL_OTHER_MOTION : property.name === PropertyName.DeviceNotificationPerson ? IndoorS350NotificationTypes.HUMAN : property.name === PropertyName.DeviceNotificationPet ? IndoorS350NotificationTypes.PET : property.name === PropertyName.DeviceNotificationCrying ? IndoorS350NotificationTypes.CRYING : IndoorS350NotificationTypes.ALL_SOUND);
@@ -881,6 +881,16 @@ export class Device extends TypedEmitter<DeviceEvents> {
             newMetadata[PropertyName.DeviceStatusLed] = DeviceStatusLedIndoorS350Property;
 
             metadata = newMetadata;
+        } else if (this.isIndoorPanAndTiltCameraC220() && Station.isStationHomeBase3BySn(this.getStationSerial())) {
+            const newMetadata = {
+                ...metadata
+            };
+
+            newMetadata[PropertyName.DeviceMotionDetection] = DeviceMotionDetectionProperty;
+            newMetadata[PropertyName.DeviceAudioRecording] = DeviceAudioRecordingProperty;
+            newMetadata[PropertyName.DeviceMotionDetectionSensitivity] = DeviceMotionDetectionSensitivityBatteryDoorbellProperty;
+
+            metadata = newMetadata;
         }
         if (Station.isStationHomeBase3BySn(this.getStationSerial()) && (metadata[PropertyName.DeviceMotionDetectionType] !== undefined || metadata[PropertyName.DeviceMotionDetectionTypeAllOtherMotions] !== undefined) && this.isCamera()) {
             const newMetadata = {
@@ -1025,6 +1035,7 @@ export class Device extends TypedEmitter<DeviceEvents> {
             type == DeviceType.CAMERA_GARAGE_T8452 ||
             type == DeviceType.CAMERA_FG ||
             type == DeviceType.INDOOR_PT_CAMERA_S350 ||
+            type == DeviceType.INDOOR_PT_CAMERA_C220 ||
             type == DeviceType.SMART_DROP)
             return true;
         return false;
@@ -1136,7 +1147,8 @@ export class Device extends TypedEmitter<DeviceEvents> {
             type == DeviceType.INDOOR_OUTDOOR_CAMERA_1080P_NO_LIGHT ||
             type == DeviceType.INDOOR_OUTDOOR_CAMERA_2K ||
             type == DeviceType.INDOOR_COST_DOWN_CAMERA ||
-            type == DeviceType.INDOOR_PT_CAMERA_S350)
+            type == DeviceType.INDOOR_PT_CAMERA_S350 ||
+            type == DeviceType.INDOOR_PT_CAMERA_C220)
             return true;
         return false;
     }
@@ -1148,7 +1160,8 @@ export class Device extends TypedEmitter<DeviceEvents> {
             type == DeviceType.FLOODLIGHT_CAMERA_8425 ||
             type == DeviceType.INDOOR_COST_DOWN_CAMERA ||
             type == DeviceType.OUTDOOR_PT_CAMERA ||
-            type == DeviceType.INDOOR_PT_CAMERA_S350)
+            type == DeviceType.INDOOR_PT_CAMERA_S350 ||
+            type == DeviceType.INDOOR_PT_CAMERA_C220)
             return true;
         return false;
     }
@@ -1161,6 +1174,12 @@ export class Device extends TypedEmitter<DeviceEvents> {
 
     static isIndoorPanAndTiltCameraS350(type: number): boolean {
         if (type == DeviceType.INDOOR_PT_CAMERA_S350)
+            return true;
+        return false;
+    }
+
+    static isIndoorPanAndTiltCameraC220(type: number): boolean {
+        if (type == DeviceType.INDOOR_PT_CAMERA_C220)
             return true;
         return false;
     }
@@ -1760,8 +1779,16 @@ export class Device extends TypedEmitter<DeviceEvents> {
         return Device.isOutdoorPanAndTiltCamera(this.rawDevice.device_type);
     }
 
+    public isIndoorPanAndTiltCameraPrivacy(): boolean {
+        return this.isIndoorPanAndTiltCameraS350() || this.isIndoorPanAndTiltCameraC220();
+    }
+
     public isIndoorPanAndTiltCameraS350(): boolean {
         return Device.isIndoorPanAndTiltCameraS350(this.rawDevice.device_type);
+    }
+
+    public isIndoorPanAndTiltCameraC220(): boolean {
+        return Device.isIndoorPanAndTiltCameraC220(this.rawDevice.device_type);
     }
 
     public isSmartDrop(): boolean {
